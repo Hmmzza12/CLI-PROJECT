@@ -4,11 +4,14 @@ import { buildApp } from '../../api/src/app.js';
 /**
  * Single catch-all Netlify Function that wraps the existing Fastify app.
  *
- * Named `forge` (not `api`) on purpose: the function pulls in ../../api/src, so
- * an `api/` directory ends up next to the handler in the deploy. A handler also
- * named `api` made Lambda resolve `/var/task/api` to that directory instead of
- * the handler file (ERR_UNSUPPORTED_DIR_IMPORT). A distinct name avoids the
- * collision. The public path stays `/api/*` via netlify.toml.
+ * `.mjs` on purpose: the API code is ESM-native (top-level await in
+ * db/index.js, import.meta.url in app.js), which can't be bundled to CommonJS.
+ * AWS Lambda (Netlify's function runtime) always loads a `.mjs` handler as an ES
+ * module regardless of the repo's package.json, so esbuild bundles this to a
+ * self-contained ESM module that Lambda loads cleanly.
+ *
+ * Named `forge` (not `api`) so the handler path can't collide with the bundled
+ * `api/` directory. The public path stays `/api/*` via netlify.toml.
  *
  * Cold-start reuse: module-level `app` is created once per cold start and reused
  * across warm invocations, as is the DB client in api/src/db/index.js.
