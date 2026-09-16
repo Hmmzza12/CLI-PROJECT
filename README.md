@@ -20,13 +20,14 @@ React web app.
 | Layer      | Choice                                                         |
 | ---------- | -------------------------------------------------------------- |
 | API        | Node.js + [Fastify](https://fastify.dev) 5 (rate-limit, cookie) |
-| Database   | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) 13 |
+| Database   | SQLite via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) (dev/tests) or [Turso](https://turso.tech)/libSQL (hosted) — auto-selected |
 | ORM        | [Drizzle](https://orm.drizzle.team) + drizzle-kit migrations   |
 | Auth       | JWT access token + rotating refresh token (httpOnly cookie for web) |
 | Validation | [Zod](https://zod.dev)                                         |
 | CLI        | [Commander](https://github.com/tj/commander.js), chalk, ora, cli-table3, @inquirer/prompts |
 | Frontend   | React + Vite, [TanStack Query](https://tanstack.com/query)/[Router](https://tanstack.com/router), Tailwind v4, shadcn-style UI, Zustand, dnd-kit |
 | Tests      | [Vitest](https://vitest.dev)                                   |
+| Hosting    | [Netlify](https://www.netlify.com) — CDN for the web app + one serverless function (`@fastify/aws-lambda`) for the API |
 
 ## Repository layout
 
@@ -95,7 +96,9 @@ curl http://127.0.0.1:3000/api/v1/health
   refuses to boot half-configured.
 - **Rate limiting** — the credential routes (`/auth/login`, `/auth/register`, `/auth/refresh`)
   allow **10 requests/minute/IP**; the 11th returns `429` with
-  `{ error: { code: "RATE_LIMITED", ... } }`.
+  `{ error: { code: "RATE_LIMITED", ... } }`. The counter is stored in the database
+  (`rate_limit_hits` table), not process memory, so the limit holds across stateless
+  serverless invocations (see [Deploy to Netlify](#deploy-to-netlify-production)).
 - **Request logging** — Pino (built into Fastify): `debug` in development, `info` in
   production, with `req.headers.authorization`, `body.password`, and `body.refreshToken`
   redacted.
@@ -146,8 +149,17 @@ npm install
 npm link            # exposes `forge` globally (or: npm install -g .)
 ```
 
-Now `forge` is on your PATH. Point it at a non-default API with
-`FORGE_API_URL=http://host:port` (otherwise `http://127.0.0.1:3000`).
+Now `forge` is on your PATH. Point it at a non-default API with `FORGE_API_URL`
+(otherwise `http://127.0.0.1:3000`). The CLI appends `/api/v1` itself, so give it the
+**origin** only:
+
+```bash
+# Local API
+FORGE_API_URL=http://127.0.0.1:3000 forge auth login
+# Deployed on Netlify
+FORGE_API_URL=https://<your-site>.netlify.app forge auth login
+```
+
 Config — API URL, tokens, and your active org/project — lives in `~/.forge/config.json`.
 
 Prefer not to link globally? Run it directly: `node cli/src/index.js <command>`.
@@ -200,6 +212,79 @@ To point at a non-proxied API, change the `target`.
   On app start a silent refresh restores the session across reloads.
 
 Build for production with `npm run build` (outputs to `frontend/dist`).
+
+---
+
+## Deploy to Netlify (production)
+
+In production the API runs as a **single Netlify serverless function** that wraps the same
+Fastify app (via `@fastify/aws-lambda`), and the built React app is served from Netlify's
+CDN. Both share one origin, so the httpOnly refresh cookie is first-party and there's no
+CORS. Data lives in **Turso** (libSQL) so it survives redeploys and cold starts.
+
+```
+Browser ─▶ Netlify CDN (frontend/dist)
+        └▶ /api/*  ──▶  Netlify Function (Fastify)  ──▶  Turso (libSQL)
+```
+
+**Files that make this work:** [`netlify.toml`](netlify.toml) (build + `/api/*` redirect +
+SPA fallback) and [`netlify/functions/api.js`](netlify/functions/api.js) (the catch-all
+function). `render.yaml` has been removed — Render is no longer used.
+
+### Steps
+
+1. **Create a Turso database** at <https://app.turso.tech> (or `turso db create forge`).
+   Copy its **Database URL** (`libsql://…`) and create an **auth token**.
+2. **Push this repo to GitHub** (already done: `Hmmzza12/CLI-PROJECT`).
+3. **Create a Netlify site** at <https://app.netlify.com> → **Add new site → Import from
+   Git** → pick the repo. Netlify reads `netlify.toml`; leave build settings as detected.
+4. **Set environment variables** (Site settings → Environment variables):
+
+   | Key                  | Value                                             |
+   | -------------------- | ------------------------------------------------- |
+   | `NODE_ENV`           | `production`                                       |
+   | `JWT_ACCESS_SECRET`  | a long random string (the brief's "JWT_SECRET")   |
+   | `JWT_REFRESH_SECRET` | a different long random string                     |
+   | `TURSO_DATABASE_URL` | from step 1                                         |
+   | `TURSO_AUTH_TOKEN`   | from step 1                                         |
+   | `SEED_ON_START`      | `true` (optional — seeds `demo@forge.dev` at build) |
+
+   Generate a secret: `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`
+5. **Deploy.** The build (`npm run build:netlify`) builds the frontend, installs the API,
+   runs `drizzle-kit migrate` against Turso, and optionally seeds. When it's live you get a
+   URL like `https://<your-site>.netlify.app`.
+
+> **Migrations run at build time** against Turso (the build machine has the creds + network),
+> so the function itself never migrates — it just serves requests. Re-running is safe
+> (migrations and the seed are idempotent).
+
+### Post-deploy smoke test
+
+Open the site and log in with `demo@forge.dev` / `password123` (if seeded), or register.
+From the CLI, end-to-end against the live function:
+
+```bash
+export FORGE_API_URL=https://<your-site>.netlify.app
+forge auth login -e demo@forge.dev -p password123
+forge org list
+forge project use "Website Redesign"
+forge task list
+```
+
+Or with `curl`: `curl https://<your-site>.netlify.app/api/v1/health`.
+
+### Local development is unchanged
+
+You do **not** need `netlify dev`. Run the API as a normal Fastify server and the Vite dev
+server as before — the Vite proxy sends `/api` to the local API:
+
+```bash
+cd api && npm run dev          # Fastify on :3000 (local better-sqlite3 file)
+cd frontend && npm run dev     # Vite on :5173, proxies /api → :3000
+```
+
+The `better-sqlite3` ↔ Turso switch is automatic: with `TURSO_DATABASE_URL` set the app uses
+libSQL; without it, the local file. No code changes between the two.
 
 ---
 
@@ -403,8 +488,10 @@ throwaway SQLite file per test file (migrations applied programmatically). Cover
 
 All three layers from the original brief are implemented: **API**, **CLI**, and **web
 frontend** — plus the Phase 3 hardening (env validation, rate limiting, structured logging,
-health endpoint, global error handler). No new environment variables were introduced;
-`.env.example` remains the source of truth.
+health endpoint, global error handler) and a **Netlify serverless deployment** (see
+[Deploy to Netlify](#deploy-to-netlify-production)). The same `buildApp()` powers the
+standalone dev server, the tests, and the serverless function — route, validation, and
+permission logic are identical across all three.
 
 Possible next steps: real-time updates (websockets), file attachments, and code-splitting
 the frontend bundle.

@@ -6,8 +6,10 @@ const CONFIG_DIR = join(homedir(), '.forge');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 const DEFAULTS = {
+  // Origin only — the API client appends `/api/v1`. Override with FORGE_API_URL,
+  // e.g. a Netlify deploy: FORGE_API_URL=https://<your-site>.netlify.app
   // 127.0.0.1 (not "localhost") avoids the Windows IPv6 ::1 resolution pitfall
-  // when the API binds to an IPv4 host like 0.0.0.0.
+  // when the local API binds to an IPv4 host like 0.0.0.0.
   apiUrl: process.env.FORGE_API_URL || 'http://127.0.0.1:3000',
 };
 

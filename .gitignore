@@ -28,3 +28,6 @@ coverage/
 # Frontend build output + generated route tree
 frontend/dist/
 frontend/src/routeTree.gen.ts
+
+# Netlify local build / function bundle artifacts
+.netlify/

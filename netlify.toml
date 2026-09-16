@@ -1,0 +1,35 @@
+# Netlify config — one serverless function serves the whole API, and the built
+# React app is published to Netlify's CDN. Both live on the same origin, so the
+# httpOnly refresh cookie is first-party and there's no CORS. See README.md.
+
+[build]
+  # Runs on Netlify's Linux build image. Builds the frontend, installs the API,
+  # migrates Turso, and (optionally) seeds demo data. --include=dev is required
+  # because NODE_ENV=production would otherwise skip Vite / drizzle-kit.
+  command = "npm run build:netlify"
+  publish = "frontend/dist"
+  functions = "netlify/functions"
+
+[functions]
+  node_bundler = "esbuild"
+  # Native / platform-specific packages are kept out of the esbuild bundle and
+  # included from node_modules for the Linux runtime instead:
+  #  - better-sqlite3: native; only used by the local/dev driver, never loaded
+  #    when TURSO_DATABASE_URL is set (production).
+  #  - @libsql/client: ships prebuilt binaries; the Turso/remote path is pure JS
+  #    but externalizing avoids esbuild choking on its optional native deps.
+  external_node_modules = ["better-sqlite3", "@libsql/client"]
+
+# Route every API call to the catch-all function. The Fastify app owns the
+# `/api/v1/...` routing internally.
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# SPA fallback: any non-API path that isn't a real static file serves index.html
+# so client-side routes (e.g. /orgs/:id) deep-link correctly.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

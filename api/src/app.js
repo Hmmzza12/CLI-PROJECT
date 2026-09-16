@@ -1,5 +1,4 @@
 import Fastify from 'fastify';
-import rateLimit from '@fastify/rate-limit';
 import cookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
 import { ZodError } from 'zod';
@@ -29,11 +28,14 @@ const DEFAULT_WEB_DIST = resolve(here, '../../frontend/dist');
  * Build (but do not start) the Fastify app. Kept side-effect free so tests can
  * spin up an instance and drive it with `app.inject()`.
  *
- * opts.rateLimit — enable per-route rate limiting (default true). Tests disable
- * it so bulk request flows aren't throttled.
+ * opts.rateLimit — enable the DB-backed rate limiter on the credential
+ * endpoints (default true). Tests disable it so bulk request flows aren't
+ * throttled.
  */
 export function buildApp(opts = {}) {
-  const app = Fastify({ logger: opts.logger ?? false });
+  // trustProxy lets `req.ip` read X-Forwarded-For — correct behind Netlify's
+  // proxy, so the rate limiter keys on the real client IP.
+  const app = Fastify({ logger: opts.logger ?? false, trustProxy: true });
   const enableRateLimit = opts.rateLimit ?? true;
 
   // Parse cookies so /auth/refresh can read the httpOnly refresh-token cookie
@@ -46,20 +48,6 @@ export function buildApp(opts = {}) {
   const serveWeb = config.isProd && existsSync(webDist);
   if (serveWeb) {
     app.register(fastifyStatic, { root: webDist, wildcard: false });
-  }
-
-  // Rate limiting is registered globally-disabled; individual routes opt in via
-  // `config.rateLimit` (see auth.routes.js). Must be registered before routes.
-  if (enableRateLimit) {
-    app.register(rateLimit, {
-      global: false,
-      max: 10,
-      timeWindow: '1 minute',
-      // The plugin throws this value; returning an AppError lets our standard
-      // error handler render it as a 429 in the { error: { code, message } } shape.
-      errorResponseBuilder: () =>
-        new AppError(429, 'RATE_LIMITED', 'Too many requests, please try again later.'),
-    });
   }
 
   // Every error leaves the API in the same shape: { error: { code, message } }.
@@ -112,7 +100,7 @@ export function buildApp(opts = {}) {
   app.get('/health', healthHandler);
   app.get('/api/v1/health', healthHandler);
 
-  app.register(authRoutes, { prefix: '/api/v1' });
+  app.register(authRoutes, { prefix: '/api/v1', rateLimit: enableRateLimit });
   app.register(orgRoutes, { prefix: '/api/v1' });
   app.register(memberRoutes, { prefix: '/api/v1' });
   app.register(projectRoutes, { prefix: '/api/v1' });

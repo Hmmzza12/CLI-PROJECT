@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, primaryKey } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, primaryKey, index } from 'drizzle-orm/sqlite-core';
 import { randomUUID } from 'node:crypto';
 
 // Shared column helpers -------------------------------------------------------
@@ -117,6 +117,20 @@ export const taskLabels = sqliteTable(
       .references(() => labels.id, { onDelete: 'cascade' }),
   },
   (t) => [primaryKey({ columns: [t.taskId, t.labelId] })],
+);
+
+// Rate-limit hits (persistent, per-invocation-safe) --------------------------
+// In-memory rate limiting resets on every serverless cold start, so instead we
+// record one row per throttled request and count rows in the current window.
+// `bucket` is `<key>:<client-ip>`; `createdAt` is epoch milliseconds.
+export const rateLimitHits = sqliteTable(
+  'rate_limit_hits',
+  {
+    id: integer('id').primaryKey({ autoIncrement: true }),
+    bucket: text('bucket').notNull(),
+    createdAt: integer('created_at').notNull(),
+  },
+  (t) => [index('rate_limit_hits_bucket_created_idx').on(t.bucket, t.createdAt)],
 );
 
 // Refresh tokens (opaque, stored as SHA-256 hashes; enables logout/rotation) --
