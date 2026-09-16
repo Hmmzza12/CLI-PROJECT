@@ -1,0 +1,30 @@
+# Dependencies
+node_modules/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# SQLite database + WAL sidecar files
+*.db
+*.db-shm
+*.db-wal
+api/forge.db*
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# Test / coverage
+coverage/
+
+# Frontend build output + generated route tree
+frontend/dist/
+frontend/src/routeTree.gen.ts

@@ -1,0 +1,21 @@
+{
+  "name": "@forge/cli",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Forge CLI — talk to the Forge API from your terminal",
+  "bin": {
+    "forge": "src/index.js"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "@inquirer/prompts": "^8.5.2",
+    "chalk": "^6.0.0",
+    "cli-table3": "^0.6.5",
+    "commander": "^15.0.0",
+    "ora": "^9.4.1"
+  }
+}
