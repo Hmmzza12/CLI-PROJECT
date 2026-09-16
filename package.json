@@ -9,6 +9,7 @@
     "build:netlify": "npm --prefix frontend install --include=dev && npm --prefix frontend run build && npm --prefix api install --include=dev && npm --prefix api run db:migrate && ( [ \"$SEED_ON_START\" = \"true\" ] && npm --prefix api run db:seed || echo 'Skipping seed (set SEED_ON_START=true to seed demo data)' )"
   },
   "dependencies": {
-    "@fastify/aws-lambda": "^6.4.1"
+    "@fastify/aws-lambda": "^6.4.1",
+    "@libsql/client": "^0.17.4"
   }
 }
