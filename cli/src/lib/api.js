@@ -13,7 +13,9 @@ export class ApiError extends Error {
 
 function baseUrl() {
   const { apiUrl } = loadConfig();
-  return `${(apiUrl || 'http://127.0.0.1:3000').replace(/\/$/, '')}/api/v1`;
+  // Defensive fallback only — loadConfig() always supplies a default (the
+  // hosted production API) via DEFAULTS in config.js.
+  return `${(apiUrl || 'https://forgecli.netlify.app').replace(/\/$/, '')}/api/v1`;
 }
 
 function buildQuery(query) {

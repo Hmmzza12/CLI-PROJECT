@@ -6,11 +6,12 @@ const CONFIG_DIR = join(homedir(), '.forge');
 const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
 
 const DEFAULTS = {
-  // Origin only — the API client appends `/api/v1`. Override with FORGE_API_URL,
-  // e.g. a Netlify deploy: FORGE_API_URL=https://<your-site>.netlify.app
-  // 127.0.0.1 (not "localhost") avoids the Windows IPv6 ::1 resolution pitfall
-  // when the local API binds to an IPv4 host like 0.0.0.0.
-  apiUrl: process.env.FORGE_API_URL || 'http://127.0.0.1:3000',
+  // Origin only — the API client appends `/api/v1`. Defaults to the hosted
+  // production API so `npx forge-cli auth login` works with zero setup.
+  // Override with FORGE_API_URL, e.g. a local dev server:
+  // FORGE_API_URL=http://127.0.0.1:3000 (127.0.0.1, not "localhost", avoids the
+  // Windows IPv6 ::1 resolution pitfall when the local API binds to 0.0.0.0).
+  apiUrl: process.env.FORGE_API_URL || 'https://forgecli.netlify.app',
 };
 
 export const configPath = CONFIG_FILE;
@@ -51,9 +52,15 @@ export function clearSession() {
 }
 
 export function requireAuth() {
+  const isFirstRun = !existsSync(CONFIG_FILE);
   const config = loadConfig();
   if (!config.accessToken) {
-    const err = new Error('You are not logged in. Run `forge auth login` first.');
+    const err = new Error(
+      isFirstRun
+        ? 'Welcome to Forge! Run `forge auth login` to get started (no account yet? ' +
+          'register at https://forgecli.netlify.app).'
+        : 'You are not logged in. Run `forge auth login` first.',
+    );
     err.isFriendly = true;
     throw err;
   }

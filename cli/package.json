@@ -1,16 +1,43 @@
 {
-  "name": "@forge/cli",
-  "version": "0.1.0",
-  "private": true,
+  "name": "@hmmzza12/forge-cli",
+  "version": "1.0.0",
+  "description": "Forge CLI — talk to the Forge API from your terminal. Zero-setup: works instantly via npx against the hosted demo API.",
   "type": "module",
-  "description": "Forge CLI — talk to the Forge API from your terminal",
   "bin": {
-    "forge": "src/index.js"
+    "forge": "./src/index.js"
   },
+  "engines": {
+    "node": ">=18"
+  },
+  "files": [
+    "src",
+    "README.md"
+  ],
   "scripts": {
-    "start": "node src/index.js"
+    "start": "node src/index.js",
+    "prepublishOnly": "node scripts/prepublish-check.mjs"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Hmmzza12/CLI-PROJECT.git",
+    "directory": "cli"
+  },
+  "homepage": "https://github.com/Hmmzza12/CLI-PROJECT/tree/main/cli#readme",
+  "bugs": {
+    "url": "https://github.com/Hmmzza12/CLI-PROJECT/issues"
+  },
+  "keywords": [
+    "cli",
+    "project-management",
+    "kanban",
+    "task-tracker",
+    "forge"
+  ],
+  "author": "Hmmzza12",
   "dependencies": {
     "@inquirer/prompts": "^8.5.2",
     "chalk": "^6.0.0",

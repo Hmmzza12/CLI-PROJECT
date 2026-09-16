@@ -7,6 +7,30 @@ Full feature set: authentication, organizations, member management, projects, ta
 (CRUD + filtering + pagination), comments, and labels — plus a hardened API and a
 React web app.
 
+## Quick start (CLI, zero setup)
+
+```bash
+npx @hmmzza12/forge-cli auth login
+```
+
+That's it — no install, no config file, no API URL to set. It defaults to the hosted
+production API (https://forgecli.netlify.app) and works instantly. Try the seeded demo
+account: `demo@forge.dev` / `password123`.
+
+> **npm publish pending** — until `forge-cli` is published, use the local-clone path instead:
+> ```bash
+> git clone https://github.com/Hmmzza12/CLI-PROJECT.git && cd CLI-PROJECT/cli
+> npm install && npm link
+> forge auth login
+> ```
+> Running `npx github:Hmmzza12/CLI-PROJECT` directly does **not** work — this is a monorepo
+> (`cli/` is a subfolder, not the repo root), and npm can't find a `bin` entry at the root
+> (confirmed: `npm error could not determine executable to run`). The npm-publish path above
+> is the real zero-setup experience; see [cli/package.json](cli/package.json) for what's
+> already prepared. Full CLI docs: [cli/README.md](cli/README.md).
+
+Prefer the web app instead? Open <https://forgecli.netlify.app> directly.
+
 ```
 ┌──────────────┐                          ┌────────────────────────────────┐
 │  forge CLI   │ ──── HTTP (Bearer) ────▶  │                                │
