@@ -20,10 +20,11 @@
   external_node_modules = ["better-sqlite3", "@libsql/client"]
 
 # Route every API call to the catch-all function. The Fastify app owns the
-# `/api/v1/...` routing internally.
+# `/api/v1/...` routing internally. The function is named `forge` (not `api`) to
+# avoid a path collision with the bundled `api/` source directory.
 [[redirects]]
   from = "/api/*"
-  to = "/.netlify/functions/api/:splat"
+  to = "/.netlify/functions/forge/:splat"
   status = 200
 
 # SPA fallback: any non-API path that isn't a real static file serves index.html
