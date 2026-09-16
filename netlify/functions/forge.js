@@ -1,14 +1,14 @@
-import awsLambdaFastify from '@fastify/aws-lambda';
-import { buildApp } from '../../api/src/app.js';
+const awsLambdaFastify = require('@fastify/aws-lambda');
+const { buildApp } = require('../../api/src/app.js');
 
 /**
  * Single catch-all Netlify Function that wraps the existing Fastify app.
  *
- * `.mjs` on purpose: the API code is ESM-native (top-level await in
- * db/index.js, import.meta.url in app.js), which can't be bundled to CommonJS.
- * AWS Lambda (Netlify's function runtime) always loads a `.mjs` handler as an ES
- * module regardless of the repo's package.json, so esbuild bundles this to a
- * self-contained ESM module that Lambda loads cleanly.
+ * CommonJS: Netlify's function runtime loads handlers with require(), so a CJS
+ * bundle is what actually loads (an .mjs handler fails with "require() of ES
+ * Module not supported"). This works because the shared API code was made
+ * CJS-bundle-safe — no top-level await (db/index.js) and a guarded
+ * import.meta.url (app.js) — so esbuild can emit a self-contained CJS bundle.
  *
  * Named `forge` (not `api`) so the handler path can't collide with the bundled
  * `api/` directory. The public path stays `/api/*` via netlify.toml.
@@ -29,10 +29,10 @@ const proxy = awsLambdaFastify(app);
 // the Fastify routes (registered under /api/...) match correctly.
 const FN_PREFIX = '/.netlify/functions/forge';
 
-export async function handler(event, context) {
+module.exports.handler = async function handler(event, context) {
   if (event.path?.startsWith(FN_PREFIX)) {
     event.path = `/api${event.path.slice(FN_PREFIX.length)}` || '/api';
   }
   context.callbackWaitsForEmptyEventLoop = false;
   return proxy(event, context);
-}
+};

@@ -21,7 +21,17 @@ const healthHandler = async () => ({
   timestamp: new Date().toISOString(),
 });
 
-const here = dirname(fileURLToPath(import.meta.url));
+// import.meta.url is unavailable once this module is bundled into a CommonJS
+// serverless function (esbuild leaves it empty). The serverless function never
+// serves static assets, so falling back to cwd is harmless there; the standalone
+// server runs as native ESM and gets the real path.
+const here = (() => {
+  try {
+    return dirname(fileURLToPath(import.meta.url));
+  } catch {
+    return process.cwd();
+  }
+})();
 const DEFAULT_WEB_DIST = resolve(here, '../../frontend/dist');
 
 /**
