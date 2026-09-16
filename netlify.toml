@@ -12,12 +12,11 @@
 
 [functions]
   node_bundler = "esbuild"
-  # Native / platform-specific packages are kept out of the esbuild bundle and
-  # included from node_modules for the Linux runtime instead:
-  #  - better-sqlite3: native; only used by the local/dev driver, never loaded
-  #    when TURSO_DATABASE_URL is set (production).
-  #  - @libsql/client: ships prebuilt binaries; the Turso/remote path is pure JS
-  #    but externalizing avoids esbuild choking on its optional native deps.
+  # Native / platform-specific packages stay out of the esbuild bundle:
+  #  - better-sqlite3: native binary, never used when TURSO_DATABASE_URL is set
+  #  - @libsql/client: has optional native bindings; pure-JS HTTP path is used
+  #    in the Lambda environment (no filesystem) so keeping it external and
+  #    letting Lambda resolve it from node_modules is the safe choice.
   external_node_modules = ["better-sqlite3", "@libsql/client"]
 
 # Route every API call to the catch-all function. The Fastify app owns the

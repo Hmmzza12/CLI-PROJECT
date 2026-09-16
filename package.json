@@ -7,8 +7,5 @@
   "scripts": {
     "//": "build:netlify runs on Netlify's Linux build image (sh) — not meant for Windows. --include=dev is required because NODE_ENV=production would otherwise skip Vite and drizzle-kit.",
     "build:netlify": "npm --prefix frontend install --include=dev && npm --prefix frontend run build && npm --prefix api install --include=dev && npm --prefix api run db:migrate && ( [ \"$SEED_ON_START\" = \"true\" ] && npm --prefix api run db:seed || echo 'Skipping seed (set SEED_ON_START=true to seed demo data)' )"
-  },
-  "dependencies": {
-    "@fastify/aws-lambda": "^5.1.4"
   }
 }
