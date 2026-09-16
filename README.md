@@ -286,6 +286,27 @@ cd frontend && npm run dev     # Vite on :5173, proxies /api → :3000
 The `better-sqlite3` ↔ Turso switch is automatic: with `TURSO_DATABASE_URL` set the app uses
 libSQL; without it, the local file. No code changes between the two.
 
+### How the function is packaged (for maintainers)
+
+Netlify's function runtime `require()`s the handler (CommonJS), so a few constraints keep it
+loadable — don't undo these:
+
+- [`netlify/functions/forge.js`](netlify/functions/forge.js) is **CommonJS**, and
+  [`netlify/functions/package.json`](netlify/functions/package.json) sets
+  `{"type":"commonjs"}` so esbuild emits a CJS bundle.
+- The shared API code must bundle to CJS: **no top-level `await`** and **no bare
+  `import.meta.url`** in the request path. `api/src/db/index.js` imports the libSQL driver
+  statically (and loads `better-sqlite3` via `createRequire` only on the local path);
+  `api/src/app.js` guards `import.meta.url`. Both remain valid native ESM for dev/tests.
+- The function is named **`forge`**, not `api` — it bundles the `api/` directory, and a
+  handler named `api` collides with it (`ERR_UNSUPPORTED_DIR_IMPORT`).
+- `@libsql/client` and `@fastify/aws-lambda` are declared in the **root** `package.json`
+  because Netlify resolves `external_node_modules` from the function's location, not
+  `api/node_modules`.
+
+Verify function changes locally by esbuild-bundling `forge.js` to CJS and driving it with
+synthetic Lambda events through the libSQL path (a `file:` URL avoids touching real Turso).
+
 ---
 
 ## 4. End-to-end walkthrough
